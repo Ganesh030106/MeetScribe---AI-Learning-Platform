@@ -1,0 +1,39 @@
+# Dependency directories
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.pnpm-store/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+coverage/
+*.tgz
+*.zip
+
+# IDE and OS specific files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test related files
+/test/coverage/
+
+# Editor-specific files
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# Optional: If you are using TypeScript and generating JavaScript
+*.js.map
+*.d.ts
