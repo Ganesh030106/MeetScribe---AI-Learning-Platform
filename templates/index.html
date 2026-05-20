@@ -4,200 +4,558 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeetScribe - AI Meeting Analysis</title>
+    <meta name="description" content="Upload your meeting video and let Gemini AI analyze it. Get summaries, action items, and sentiment analysis instantly.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0e1a;
+            --surface: rgba(255,255,255,0.04);
+            --surface-hover: rgba(255,255,255,0.08);
+            --border: rgba(255,255,255,0.08);
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --accent-glow: rgba(99,102,241,0.3);
+            --green: #22c55e;
+            --green-glow: rgba(34,197,94,0.25);
+            --red: #ef4444;
+            --red-glow: rgba(239,68,68,0.2);
+            --amber: #f59e0b;
+            --radius: 16px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: grid;
-            place-items: center;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            background-color: #f4f7f6;
-            color: #333;
-            margin: 0;
+            overflow-x: hidden;
         }
-        main {
-            width: 90%;
-            max-width: 700px;
-            padding: 2rem;
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(99,102,241,0.08), transparent),
+                radial-gradient(ellipse 500px 350px at 80% 80%, rgba(139,92,246,0.06), transparent);
+            pointer-events: none;
+            z-index: 0;
         }
-        h1 {
-            color: #005f73;
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Header */
+        .header {
             text-align: center;
-            margin-top: 0;
+            margin-bottom: 2rem;
         }
-        p {
-            text-align: center;
-            color: #555;
-            line-height: 1.5;
+        .header .logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #818cf8, #6366f1, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
         }
-        form {
+        .header .tagline {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            margin-bottom: 1.25rem;
+            backdrop-filter: blur(12px);
+            transition: border-color 0.3s;
+        }
+        .card:hover { border-color: rgba(255,255,255,0.12); }
+
+        .card-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
             display: flex;
-            flex-direction: column;
-            gap: 1rem;
+            align-items: center;
+            gap: 0.5rem;
         }
-        input[type="file"] {
-            font-size: 1rem;
-            border: 2px dashed #00a896;
-            border-radius: 8px;
-            padding: 1.5rem;
-            cursor: pointer;
-            text-align: center;
-            color: #555;
-            background-color: #fcfcfc;
+
+        /* API Key Section */
+        .api-key-group {
+            display: flex;
+            gap: 0.75rem;
+            align-items: stretch;
         }
-        input[type="file"]::file-selector-button {
-            background-color: #00a896;
-            color: white;
+        .api-key-input {
+            flex: 1;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-family: 'Inter', monospace;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .api-key-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .api-key-input::placeholder { color: #475569; }
+
+        .btn {
             border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 10px;
+            padding: 0.75rem 1.25rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
             cursor: pointer;
-            margin-right: 1rem;
+            transition: all 0.25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
         }
-        button {
-            background: #0077b6;
-            color: white;
-            border: none;
-            padding: 1rem;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s;
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
         }
-        button:hover {
-            background: #023e8a;
+        .btn-outline:hover { background: var(--surface-hover); color: var(--text); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow);
         }
-        button:disabled {
-            background: #b0b0b0;
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 28px var(--accent-glow);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
-        #loader {
+
+        /* Status badge */
+        .key-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .key-status.visible { opacity: 1; }
+        .key-status .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .key-status.valid .dot { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+        .key-status.valid { color: var(--green); }
+        .key-status.invalid .dot { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+        .key-status.invalid { color: var(--red); }
+        .key-status.checking { color: var(--amber); }
+        .key-status.checking .dot { background: var(--amber); animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+        /* File Upload */
+        .upload-area {
+            border: 2px dashed rgba(99,102,241,0.25);
+            border-radius: 12px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(99,102,241,0.03);
+            position: relative;
+        }
+        .upload-area:hover {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.06);
+        }
+        .upload-area.dragover {
+            border-color: var(--accent);
+            background: rgba(99,102,241,0.1);
+        }
+        .upload-area .icon { font-size: 2.2rem; margin-bottom: 0.5rem; }
+        .upload-area .label { font-weight: 600; font-size: 0.95rem; }
+        .upload-area .hint { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.3rem; }
+        .upload-area input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .file-selected {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--green);
+            display: none;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Submit */
+        .submit-row {
+            display: flex;
+            justify-content: center;
+            margin-top: 1.25rem;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1rem;
+            justify-content: center;
+        }
+
+        /* Loader */
+        .loader {
             display: none;
             text-align: center;
-            margin: 2rem 0;
-            font-weight: bold;
-            color: #005f73;
+            padding: 2rem;
         }
-        #results {
+        .loader .spinner {
+            width: 48px; height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader p { color: var(--text-muted); font-size: 0.9rem; }
+
+        /* Error */
+        .error-box {
             display: none;
-            border-top: 2px solid #eee;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
+            background: var(--red-glow);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            color: #fca5a5;
+            font-size: 0.9rem;
+            margin-bottom: 1.25rem;
         }
-        h2 {
-            border-bottom: 2px solid #00a896;
-            padding-bottom: 0.5rem;
-            color: #005f73;
-        }
-        #results div {
-            background: #fdfdfd;
-            border: 1px solid #eee;
-            border-radius: 8px;
+
+        /* Results */
+        .results { display: none; }
+        .results .section-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             padding: 1.5rem;
-            margin-top: 1rem;
+            margin-bottom: 1rem;
         }
-        #results ul {
-            padding-left: 20px;
-            list-style: "✅ ";
-        }
-        #results li {
+        .results h3 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent);
             margin-bottom: 0.75rem;
-            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
-        pre {
+        .results p, .results li {
+            color: var(--text-muted);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+        .results ul {
+            list-style: none;
+            padding: 0;
+        }
+        .results li {
+            padding: 0.75rem;
+            border-left: 3px solid var(--accent);
+            margin-bottom: 0.5rem;
+            background: rgba(99,102,241,0.04);
+            border-radius: 0 8px 8px 0;
+        }
+        .results li strong { color: var(--text); }
+        .results li .meta { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+
+        pre.json-output {
+            background: rgba(0,0,0,0.4);
+            color: #a5b4fc;
+            padding: 1.25rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            overflow-x: auto;
             white-space: pre-wrap;
             word-wrap: break-word;
-            background: #222;
-            color: #eee;
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
         }
-        #error {
-            display: none;
-            color: #D8000C;
-            background-color: #FFD2D2;
-            border: 1px solid #D8000C;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 1.5rem;
-            text-align: left;
+
+        .success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--green-glow);
+            color: var(--green);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+        }
+
+        /* Security note */
+        .security-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(34,197,94,0.06);
+            border: 1px solid rgba(34,197,94,0.12);
+            border-radius: 10px;
+            margin-top: 0.75rem;
+            font-size: 0.78rem;
+            color: #86efac;
+            line-height: 1.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 1.25rem 1rem 3rem; }
+            .header .logo { font-size: 1.8rem; }
+            .api-key-group { flex-direction: column; }
         }
     </style>
 </head>
 <body>
-    <main>
-        <h1>MeetScribe 🎙️</h1>
-        <p>Upload your meeting video (.mp4, .mov) and let Gemini 2.5 Flash do the hard work. It will analyze the video, audio, and slides to give you a complete report.</p>
-        
-        <form id="upload-form">
-            <input type="file" id="video-file" name="video" accept="video/*" required>
-            <button type="submit" id="submit-button">Analyze Meeting</button>
-        </form>
+    <div class="container">
+        <header class="header">
+            <div class="logo">MeetScribe 🎙️</div>
+            <p class="tagline">AI-Powered Meeting Analysis — Upload a video, get instant insights</p>
+        </header>
 
-        <div id="loader">
-            <p>Uploading and analyzing...<br>This may take several minutes for a large video.</p>
+        <!-- API Key Card -->
+        <div class="card" id="api-key-card">
+            <div class="card-title">🔑 Gemini API Key</div>
+            <div class="api-key-group">
+                <input type="password" class="api-key-input" id="api-key-input"
+                       placeholder="Paste your Gemini API key here..."
+                       autocomplete="off" spellcheck="false">
+                <button class="btn btn-outline" id="toggle-key-btn" onclick="toggleKeyVisibility()" title="Show/Hide key">👁️</button>
+                <button class="btn btn-primary" id="validate-btn" onclick="validateKey()">Verify</button>
+            </div>
+            <div class="key-status" id="key-status">
+                <span class="dot"></span>
+                <span class="msg"></span>
+            </div>
+            <div class="security-note">
+                <span>🔒</span>
+                <span>Your API key is stored <strong>only in your browser</strong> (localStorage) and sent directly to Google's API. It is never saved on our server.</span>
+            </div>
         </div>
-        
-        <div id="error"></div>
 
-        <div id="results">
-            <h2>Analysis Complete</h2>
-            
-            <div id="summary-box">
-                <h3>Summary</h3>
+        <!-- Upload Card -->
+        <div class="card">
+            <div class="card-title">📁 Upload Meeting Video</div>
+            <form id="upload-form">
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="video-file" name="video" accept="video/*" required>
+                    <div class="icon">🎬</div>
+                    <div class="label">Drop your video here or click to browse</div>
+                    <div class="hint">Supports .mp4, .mov, .avi, .webm</div>
+                </div>
+                <div class="file-selected" id="file-selected">
+                    <span>✅</span> <span id="file-name"></span>
+                </div>
+                <div class="submit-row">
+                    <button type="submit" class="btn btn-primary btn-submit" id="submit-btn" disabled>
+                        ✨ Analyze Meeting
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p>Uploading & analyzing your meeting...<br>This may take a few minutes for large videos.</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-box" id="error-box"></div>
+
+        <!-- Results -->
+        <div class="results" id="results">
+            <div class="success-badge">✅ Analysis Complete</div>
+
+            <div class="section-card">
+                <h3>📋 Summary</h3>
                 <p id="summary"></p>
             </div>
-            
-            <div id="sentiment-box">
-                <h3>Sentiment</h3>
+
+            <div class="section-card">
+                <h3>💬 Sentiment</h3>
                 <p id="sentiment"></p>
             </div>
 
-            <div id="actions-box">
-                <h3>Action Items</h3>
+            <div class="section-card">
+                <h3>✅ Action Items</h3>
                 <ul id="action-items"></ul>
             </div>
 
-            <div id="json-box">
-                <h3>Raw JSON Output</h3>
-                <pre id="raw-json"></pre>
+            <div class="section-card">
+                <h3>🧾 Raw JSON</h3>
+                <pre class="json-output" id="raw-json"></pre>
             </div>
         </div>
-    </main>
+    </div>
 
     <script>
+        // --- API Key Management ---
+        const apiKeyInput = document.getElementById('api-key-input');
+        const keyStatus = document.getElementById('key-status');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Load saved key on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                apiKeyInput.value = savedKey;
+                setKeyStatus('valid', 'Key loaded from browser storage');
+                updateSubmitState();
+            }
+        });
+
+        function toggleKeyVisibility() {
+            const input = apiKeyInput;
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function setKeyStatus(state, message) {
+            keyStatus.className = 'key-status visible ' + state;
+            keyStatus.querySelector('.msg').textContent = message;
+        }
+
+        function getApiKey() {
+            return apiKeyInput.value.trim();
+        }
+
+        async function validateKey() {
+            const key = getApiKey();
+            if (!key) {
+                setKeyStatus('invalid', 'Please enter an API key');
+                return;
+            }
+
+            setKeyStatus('checking', 'Validating key...');
+
+            try {
+                const res = await fetch('/validate-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key }),
+                });
+                const data = await res.json();
+
+                if (res.ok && data.valid) {
+                    localStorage.setItem('gemini_api_key', key);
+                    setKeyStatus('valid', '✓ ' + data.message);
+                    updateSubmitState();
+                } else {
+                    localStorage.removeItem('gemini_api_key');
+                    setKeyStatus('invalid', data.error || 'Invalid key');
+                    updateSubmitState();
+                }
+            } catch (err) {
+                setKeyStatus('invalid', 'Network error — try again');
+            }
+        }
+
+        // Save key whenever it changes
+        apiKeyInput.addEventListener('input', () => {
+            keyStatus.className = 'key-status';
+            updateSubmitState();
+        });
+
+        // --- File Upload ---
+        const fileInput = document.getElementById('video-file');
+        const uploadArea = document.getElementById('upload-area');
+        const fileSelected = document.getElementById('file-selected');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files[0]) {
+                document.getElementById('file-name').textContent = fileInput.files[0].name;
+                fileSelected.style.display = 'flex';
+                updateSubmitState();
+            }
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', () => uploadArea.classList.remove('dragover'));
+
+        function updateSubmitState() {
+            const hasKey = getApiKey().length > 0;
+            const hasFile = fileInput.files && fileInput.files[0];
+            submitBtn.disabled = !(hasKey && hasFile);
+        }
+
+        // --- Form Submit ---
         const form = document.getElementById('upload-form');
-        const submitButton = document.getElementById('submit-button');
         const loader = document.getElementById('loader');
         const resultsDiv = document.getElementById('results');
-        const errorDiv = document.getElementById('error');
+        const errorBox = document.getElementById('error-box');
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const formData = new FormData(form);
-            if (!document.getElementById('video-file').files[0]) {
-                showError("Please select a video file first.");
+
+            const key = getApiKey();
+            if (!key) {
+                showError('Please enter your Gemini API key first.');
                 return;
             }
-            
-            // --- UI Start ---
+
+            const formData = new FormData(form);
+            formData.append('api_key', key);
+
+            // Save key to localStorage on successful use
+            localStorage.setItem('gemini_api_key', key);
+
             loader.style.display = 'block';
             resultsDiv.style.display = 'none';
-            errorDiv.style.display = 'none';
-            submitButton.disabled = true;
-            submitButton.innerText = 'Analyzing...';
+            errorBox.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Analyzing...';
 
             try {
                 const response = await fetch('/analyze', {
                     method: 'POST',
                     body: formData,
                 });
-
                 const data = await response.json();
 
                 if (response.ok) {
@@ -205,47 +563,43 @@
                 } else {
                     throw new Error(data.error || 'An unknown error occurred.');
                 }
-
             } catch (error) {
                 showError(error.message);
             } finally {
-                // --- UI Stop ---
                 loader.style.display = 'none';
-                submitButton.disabled = false;
-                submitButton.innerText = 'Analyze Meeting';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '✨ Analyze Meeting';
+                updateSubmitState();
             }
         });
 
         function displayResults(data) {
             resultsDiv.style.display = 'block';
-            errorDiv.style.display = 'none';
+            errorBox.style.display = 'none';
 
-            // Populate the fields
             document.getElementById('summary').innerText = data.summary;
             document.getElementById('sentiment').innerText = data.sentiment;
 
-            // Populate action items
             const actionList = document.getElementById('action-items');
-            actionList.innerHTML = ''; // Clear old items
-            
-            if (data.action_items.length > 0) {
+            actionList.innerHTML = '';
+
+            if (data.action_items && data.action_items.length > 0) {
                 data.action_items.forEach(item => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${item.task}</strong><br>(Owner: ${item.owner}, Deadline: ${item.deadline})`;
+                    li.innerHTML = `<strong>${item.task}</strong><div class="meta">👤 ${item.owner} &nbsp;|&nbsp; 📅 ${item.deadline}</div>`;
                     actionList.appendChild(li);
                 });
             } else {
-                actionList.innerHTML = "<li>No action items were identified.</li>";
+                actionList.innerHTML = '<li>No action items were identified.</li>';
             }
 
-            // Show the raw JSON
             document.getElementById('raw-json').innerText = JSON.stringify(data, null, 2);
         }
-        
+
         function showError(message) {
             resultsDiv.style.display = 'none';
-            errorDiv.style.display = 'block';
-            errorDiv.innerText = `Error: ${message}`;
+            errorBox.style.display = 'block';
+            errorBox.innerText = '⚠️ ' + message;
         }
     </script>
 </body>

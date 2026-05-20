@@ -3,33 +3,16 @@ import re
 import json
 import google.generativeai as genai
 from flask import Flask, request, jsonify, render_template
-from dotenv import load_dotenv
 
 # --- Configuration ---
 print("Starting MeetScribe server...")
-load_dotenv()
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 1. Configure the Gemini API
-try:
-    api_key = os.environ["GEMINI_API_KEY"]
-    if not api_key:
-        raise KeyError
-    genai.configure(api_key=api_key)
-    print("Gemini API configured successfully.")
-except KeyError:
-    print("\n" + "="*50)
-    print("FATAL ERROR: GEMINI_API_KEY not found.")
-    print("Please create a file named '.env' in this directory and add:")
-    print("GEMINI_API_KEY=your_api_key_here")
-    print("="*50 + "\n")
-    exit()
-
-# 2. This is the Master Prompt for the Gemini Agent.
+# 1. The Master Prompt for the Gemini Agent.
 # It's the most important part! It tells Gemini exactly what to do
 # and forces it to return a clean JSON object.
 MEETING_ANALYSIS_PROMPT = """
@@ -69,10 +52,36 @@ def index():
     print("Serving index.html")
     return render_template('index.html')
 
+@app.route('/validate-key', methods=['POST'])
+def validate_key():
+    """Validates the user's Gemini API key by making a simple test call."""
+    data = request.get_json()
+    api_key = data.get('api_key', '').strip()
+
+    if not api_key:
+        return jsonify({"valid": False, "error": "API key is required."}), 400
+
+    try:
+        genai.configure(api_key=api_key)
+        # Quick test: list models to see if the key is valid
+        models = list(genai.list_models())
+        if models:
+            return jsonify({"valid": True, "message": "API key is valid!"})
+        else:
+            return jsonify({"valid": False, "error": "Key accepted but no models found."}), 400
+    except Exception as e:
+        return jsonify({"valid": False, "error": f"Invalid API key: {str(e)}"}), 400
+
 @app.route('/analyze', methods=['POST'])
 def analyze_meeting():
     """Handles the video upload and analysis."""
     print("\nReceived new /analyze request.")
+
+    # Get the API key from the form data
+    api_key = request.form.get('api_key', '').strip()
+    if not api_key:
+        return jsonify({"error": "Gemini API key is required. Please enter your key in the settings panel."}), 400
+
     if 'video' not in request.files:
         print("Error: No video file in request.")
         return jsonify({"error": "No video file provided"}), 400
@@ -81,6 +90,12 @@ def analyze_meeting():
     if file.filename == '':
         print("Error: No selected file.")
         return jsonify({"error": "No selected file"}), 400
+
+    # Configure Gemini with the user's API key for this request
+    try:
+        genai.configure(api_key=api_key)
+    except Exception as e:
+        return jsonify({"error": f"Invalid API key: {str(e)}"}), 400
 
     # We need to save the file locally *first* to upload it to the API
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
@@ -116,7 +131,7 @@ def analyze_meeting():
         model = genai.GenerativeModel(model_name="gemini-2.5-flash")
         
         # Send the prompt *and* the video file handle
-        print("Sending prompt and video to Gemini 1.5 Pro...")
+        print("Sending prompt and video to Gemini 2.5 Flash...")
         response = model.generate_content(
             [MEETING_ANALYSIS_PROMPT, video_file_gemini],
             request_options={"timeout": 1000} # Increase timeout for long videos
@@ -147,5 +162,6 @@ def analyze_meeting():
             print(f"Deleted remote file: {video_file_gemini.name}")
 
 if __name__ == '__main__':
-    print("MeetScribe server starting on http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"MeetScribe server starting on http://127.0.0.1:{port}")
+    app.run(debug=False, host='0.0.0.0', port=port)
